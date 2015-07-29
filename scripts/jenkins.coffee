@@ -268,8 +268,10 @@ jenkinsBuildLogById = (msg, robot) ->
     if job
       if job.indexOf(",") != -1
         name = job.split(", ")
+        #clean up to pass in the correct path to the console log on jenkins for the variant
+        variant = name[1].split("[")[1].split("]")[0]
         msg.match[1] = name[0]
-        msg.match[3] = name[1]
+        msg.match[3] = variant
       else
         msg.match[1] = job
         # Ensure that if a build number was specified it's not mistaken for the build variant in jenkinsBuildLog
