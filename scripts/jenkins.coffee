@@ -346,19 +346,19 @@ jenkinsBuildLog = (msg, robot) ->
               msg.send error
 
 module.exports = (robot) ->
-  robot.respond /j(?:enkins)? build (\d+)/i, (msg) ->
+  robot.respond /build (\d+)/i, (msg) ->
     jenkinsBuildById(msg)
 
-  robot.respond /j(?:enkins)? list( (.+))?/i, (msg) ->
+  robot.respond /list( (.+))?/i, (msg) ->
     jenkinsList(msg)
 
-  robot.respond /j(?:enkins)? describe (.*)/i, (msg) ->
+  robot.respond /describe (.*)/i, (msg) ->
     jenkinsDescribe(msg)
 
-  robot.respond /j(?:enkins)? last (.*)/i, (msg) ->
+  robot.respond /last (.*)/i, (msg) ->
     jenkinsLast(msg)
 
-  robot.respond /j(?:enkins)? log (\d+)(?:[\,\-b ]+)?(\d+)?/i, (msg) ->
+  robot.respond /log (\d+)(?:[\,\-b ]+)?(\d+)?/i, (msg) ->
     slack_bot = robot.adapter.client
     jenkinsBuildLogById(msg, slack_bot)
 
