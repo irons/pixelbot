@@ -14,14 +14,10 @@
 # Commands:
 #
 #   hubot jenkins b <jobNumber> - builds the job specified by jobNumber. List jobs to get number.
-#   hubot jenkins build <job> - builds the specified Jenkins job
-#   hubot jenkins build <job> -p <params> - builds the specified Jenkins job with parameters as key=value&key2=value2
 #   hubot jenkins list - lists Jenkins jobs.
 #   hubot jenkins describe <job> - Describes the specified Jenkins job
 #   hubot jenkins last <job> - Details about the last build for the specified Jenkins job
 #   hubot jenkins l <jobNumber> -b <build number> (optional) - uploads Jenkins console log of job specified by jobNumber. List jobs to get number.
-#   hubot jenkins log <job> - uploads Jenkins console log of last failed build to chat room
-#   hubot jenkins log <job> -b <build number> (optional) -v <build-variant> (optional) - uploads Jenkins console log for specified build variant and number (if provided)
 #
 # Author:
 # Adapted from Doug Cole's jenkins.coffee
@@ -350,10 +346,7 @@ jenkinsBuildLog = (msg, robot) ->
               msg.send error
 
 module.exports = (robot) ->
-  robot.respond /j(?:enkins)? build ([\w\.\-_]+)?(?: \-p )?([\w\.\-_=&,\w=]+)?/i, (msg) ->
-    jenkinsBuild(msg, false)
-
-  robot.respond /j(?:enkins)? b (\d+)/i, (msg) ->
+  robot.respond /j(?:enkins)? build (\d+)/i, (msg) ->
     jenkinsBuildById(msg)
 
   robot.respond /j(?:enkins)? list( (.+))?/i, (msg) ->
@@ -365,18 +358,14 @@ module.exports = (robot) ->
   robot.respond /j(?:enkins)? last (.*)/i, (msg) ->
     jenkinsLast(msg)
 
-  robot.respond /j(?:enkins)? log ([\w\.\-_]+)(?:[\-b\ ]+)?([\d]+)?(?:[ \-v \ ]+)?([\w\.\-_=,\w=]+)?/i, (msg) ->
-    slack_bot = robot.adapter.client
-    jenkinsBuildLog(msg, slack_bot)
-
-  robot.respond /j(?:enkins)? l (\d+)(?:[\,\-b ]+)?(\d+)?/i, (msg) ->
+  robot.respond /j(?:enkins)? log (\d+)(?:[\,\-b ]+)?(\d+)?/i, (msg) ->
     slack_bot = robot.adapter.client
     jenkinsBuildLogById(msg, slack_bot)
 
   robot.jenkins = {
     list: jenkinsList,
-    build: jenkinsBuild
-    describe: jenkinsDescribe
-    last: jenkinsLast
+    build: jenkinsBuild,
+    describe: jenkinsDescribe,
+    last: jenkinsLast,
     log: jenkinsBuildLog
   }
