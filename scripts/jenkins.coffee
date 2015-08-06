@@ -83,6 +83,23 @@ jenkinsBuild = (msg, buildWithEmptyParameters) ->
     else
       msg.reply "I'm sorry, it looks like you're either in the wrong Slack Channel or trying to kick off the wrong Jenkins build. The Jenkins build job must match the channel you are in."
 
+jenkinsDescribeById = (msg) ->
+    # Switch the index with the job name
+    job = jobList[parseInt(msg.match[1])]
+
+    if job
+      if job.indexOf("build-variant") != -1
+        info = job.split("build-variant: [")
+        jobname = info[0].split(",")[0]
+        variant = info[1].split("]")[0]
+        msg.match[1] = jobname + "/" + variant
+      else
+        msg.match[1] = job
+      jenkinsDescribe(msg)
+    else
+      msg.reply "I couldn't find that job. Try 'jenkins list' to get a list."
+
+
 jenkinsDescribe = (msg) ->
     url = process.env.HUBOT_JENKINS_URL
     job = msg.match[1]
@@ -369,7 +386,7 @@ module.exports = (robot) ->
     jenkinsList(msg)
 
   robot.respond /describe (.*)/i, (msg) ->
-    jenkinsDescribe(msg)
+    jenkinsDescribeById(msg)
 
   robot.respond /last (.*)/i, (msg) ->
     jenkinsLastById(msg)
