@@ -13,11 +13,11 @@
 #
 # Commands:
 #
-#   hubot build <jobNumber> - builds the job specified by jobNumber. List jobs to get number.
 #   hubot list - lists Jenkins jobs.
-#   hubot describe <job> - Describes the specified Jenkins job
-#   hubot last <job> - Details about the last build for the specified Jenkins job
-#   hubot log <jobNumber> -b <build number> (optional) - uploads Jenkins console log of job specified by jobNumber. List jobs to get number.
+#   hubot build <jobNumber> - builds the job specified by [jobNumber]. List jobs to get number.
+#   hubot describe <jobNumber> - Describes the specified Jenkins job by [jobNumber].
+#   hubot last <jobNumber> - Details about the last build for the job specified by [jobNumber].
+#   hubot log <jobNumber> -b <build number> (optional) - uploads Jenkins console log of job specified by [jobNumber]. List jobs to get number.
 #
 # Author:
 # Adapted from Doug Cole's jenkins.coffee
@@ -164,6 +164,22 @@ jenkinsDescribe = (msg) ->
               msg.send error
     else
       msg.reply "I'm sorry. I don't know the job you want me to describe."
+
+jenkinsLastById = (msg) ->
+    # Switch the index with the job name
+    job = jobList[parseInt(msg.match[1])]
+
+    if job
+      if job.indexOf("build-variant") != -1
+        info = job.split("build-variant: [")
+        jobname = info[0].split(",")[0]
+        variant = info[1].split("]")[0]
+        msg.match[1] = jobname + "/" + variant
+      else
+        msg.match[1] = job
+      jenkinsLast(msg)
+    else
+      msg.reply "I couldn't find that job. Try 'jenkins list' to get a list."
 
 jenkinsLast = (msg) ->
     url = process.env.HUBOT_JENKINS_URL
@@ -356,7 +372,7 @@ module.exports = (robot) ->
     jenkinsDescribe(msg)
 
   robot.respond /last (.*)/i, (msg) ->
-    jenkinsLast(msg)
+    jenkinsLastById(msg)
 
   robot.respond /log (\d+)(?:[\,\-b ]+)?(\d+)?/i, (msg) ->
     slack_bot = robot.adapter.client
