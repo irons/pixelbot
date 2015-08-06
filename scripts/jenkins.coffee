@@ -13,11 +13,11 @@
 #
 # Commands:
 #
-#   hubot jenkins b <jobNumber> - builds the job specified by jobNumber. List jobs to get number.
-#   hubot jenkins list - lists Jenkins jobs.
-#   hubot jenkins describe <job> - Describes the specified Jenkins job
-#   hubot jenkins last <job> - Details about the last build for the specified Jenkins job
-#   hubot jenkins l <jobNumber> -b <build number> (optional) - uploads Jenkins console log of job specified by jobNumber. List jobs to get number.
+#   hubot build <jobNumber> - builds the job specified by jobNumber. List jobs to get number.
+#   hubot list - lists Jenkins jobs.
+#   hubot describe <job> - Describes the specified Jenkins job
+#   hubot last <job> - Details about the last build for the specified Jenkins job
+#   hubot log <jobNumber> -b <build number> (optional) - uploads Jenkins console log of job specified by jobNumber. List jobs to get number.
 #
 # Author:
 # Adapted from Doug Cole's jenkins.coffee
@@ -239,7 +239,7 @@ jenkinsList = (msg) ->
             if response.length == 0
               msg.reply "There appears to be no jobs available for you. If you believe this is an error, please contact the build management team."
             else
-              response += "\n Trigger a build by using the commands 'jenkins build <job name> -p <parameters (optional)>' or 'jenkins b [job number]'. To get more information, including build parameters, on a specifc job listed above, use the command 'jenkins describe <job name>'."
+              response += "\n Trigger a build by using the commands 'build [job number]'. To get more information, including build parameters, on a specifc job listed above, use the command 'describe <job name>'."
               msg.send response
 
           catch error
