@@ -385,10 +385,10 @@ module.exports = (robot) ->
   robot.respond /list( (.+))?/i, (msg) ->
     jenkinsList(msg)
 
-  robot.respond /describe (.*)/i, (msg) ->
+  robot.respond /describe (\d+)?/i, (msg) ->
     jenkinsDescribeById(msg)
 
-  robot.respond /last (.*)/i, (msg) ->
+  robot.respond /last (\d+)?/i, (msg) ->
     jenkinsLastById(msg)
 
   robot.respond /log (\d+)(?:[\,\-b ]+)?(\d+)?/i, (msg) ->
