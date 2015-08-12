@@ -24,8 +24,6 @@ upload = (msg) ->
       console.log("Something's wrong with the JSON file for hockeyapp IDs:" + error ) if error
       hockey_info = JSON.parse(body)
 
-      msg.send JSON.stringify(hockey_info)
-
       key = platform + "-" + market
       if key of hockey_info
         app_id = hockey_info[key]
