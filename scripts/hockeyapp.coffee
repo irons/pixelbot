@@ -60,8 +60,8 @@ upload = (msg) ->
         else if res.statusCode == 201
           response = ""
           info = JSON.parse(body)
-          for p in info
-            response += "#{p}: " + info[p] + "\n"
+          for p, v of info
+            response += "#{p}: #{v}\n"
           msg.reply "Build posted to HockeyApp.\n #{response}"
         else
           msg.reply "Not sure what went on here... #{res.statusCode}, #{body}"+"\n#{app_id}, #{file_path}" + JSON.stringify(data)
