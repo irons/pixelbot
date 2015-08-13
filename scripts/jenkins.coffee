@@ -20,68 +20,68 @@
 #   hubot log <jobNumber> -b <build number> (optional) - uploads Jenkins console log of job specified by [jobNumber]. List jobs to get number.
 #
 # Author:
-# Adapted from Doug Cole's jenkins.coffee
+# Jesse Chen
 
 querystring = require 'querystring'
 fs = require 'fs'
 request = require 'request'
 
-# Holds a list of jobs, so we can trigger them with a number
-# instead of the job's name. Gets populated on when calling
-# list.
-jobList = []
-
-jenkinsBuildById = (msg) ->
-    # Switch the index with the job name
-    job = jobList[parseInt(msg.match[1])]
-
-    if job
-      if job.indexOf("build-variant") != -1
-        info = job.split("build-variant: [")
-        jobname = info[0].split(",")[0]
-        variant = info[1].split("]")[0]
-        msg.match[1] = jobname
-        msg.match[3] = variant
-      else
-        msg.match[1] = job
-      jenkinsBuild(msg)
-    else
-      msg.reply "I couldn't find that job. Try 'jenkins list' to get a list."
+# Holds jobs and info on jobs as objects.
+jobList = {}
 
 jenkinsBuild = (msg, buildWithEmptyParameters) ->
-    job = querystring.escape msg.match[1]
-    if jenkinsCheckChannel(msg, job)
-      url = process.env.HUBOT_JENKINS_URL
-      # Build out the variants and add to build parameters string
-      if msg.match[3]
-        variants = "BUILD_ALL=false"
-        axis = msg.match[3].split(",")
-        for v in axis
-          bv = v.split("=")
-          variants += "&" + bv[0].toUpperCase() + "V=" + bv[1]
+    platform = msg.match[1]
+    variants = msg.match[2]
+    # Get market name by getting the last word in Slack channel name. E.g. moonshine-usa --> market is usa
+    market = msg.envelope.room.split('-').pop()
+    job = "starbucks-#{platform}-#{market}"
 
-      params = if msg.match[2] then msg.match[2] + "&" + variants else variants
-      command = if buildWithEmptyParameters then "buildWithParameters" else "build"
-      path = if params then "#{url}/job/#{job}/buildWithParameters?#{params}" else "#{url}/job/#{job}/#{command}"
+    job_info = jobList[job]
+    console.log("job info: " + JSON.stringify(job_info))
 
-      req = msg.http(path)
+    # Get build variants and build out build parameter string
+    if "build-variants" of job_info
+      job_variants = job_info["build-variants"]
+      params = ""
+      if variants
+        vn = variants.split(' ')
+        for v in job_variants
+          console.log(v)
+          axes = v.split(',')
+          for axis in axes
+            a = axis.split("=")
+            if a[1].toUpperCase() is vn[0].toUpperCase()
+              str = a[0].toUpperCase() + "V=" + a[1] + "&"
+              if params.indexOf(str) == -1
+                params += str
+            else if (vn.length > 1 && (a[1].toUpperCase() is vn[vn.length - 1].toUpperCase()))
+              str = a[0].toUpperCase() + "V=" + a[1] + "&"
+              if params.indexOf(str) == -1
+                params += str
+      console.log(params)
 
-      if process.env.HUBOT_JENKINS_AUTH
-        auth = new Buffer(process.env.HUBOT_JENKINS_AUTH).toString('base64')
-        req.headers Authorization: "Basic #{auth}"
+    url = process.env.HUBOT_JENKINS_URL
+    command = if buildWithEmptyParameters then "buildWithParameters" else "build"
+    path = if params then "#{url}/job/#{job}/buildWithParameters?#{params}" else "#{url}/job/#{job}/#{command}"
+
+    console.log(path)
+
+    req = msg.http(path)
+
+    if process.env.HUBOT_JENKINS_AUTH
+      auth = new Buffer(process.env.HUBOT_JENKINS_AUTH).toString('base64')
+      req.headers Authorization: "Basic #{auth}"
 
       req.header('Content-Length', 0)
       req.post() (err, res, body) ->
-          if err
-            msg.reply "Jenkins says: #{err}"
-          else if 200 <= res.statusCode < 400 # Or, not an error code.
-            msg.reply "(#{res.statusCode}) Build started for #{job} #{url}/job/#{job}"
-          else if 400 == res.statusCode
-            jenkinsBuild(msg, true)
-          else
-            msg.reply "Jenkins says: Status #{res.statusCode} #{body}"
-    else
-      msg.reply "I'm sorry, it looks like you're either in the wrong Slack Channel or trying to kick off the wrong Jenkins build. The Jenkins build job must match the channel you are in."
+        if err
+          msg.reply "Jenkins says: #{err}"
+        else if 200 <= res.statusCode < 400 # Or, not an error code.
+          msg.reply "(#{res.statusCode}) Build started for #{job} #{url}/job/#{job}"
+        else if 400 == res.statusCode
+          jenkinsBuild(msg, true)
+        else
+          msg.reply "Jenkins says: Status #{res.statusCode} #{body}"
 
 jenkinsDescribeById = (msg) ->
     # Switch the index with the job name
@@ -249,30 +249,35 @@ jenkinsList = (msg) ->
             content = JSON.parse(body)
             for job in content.jobs
               # Add the job to the jobList
-              if jobList.indexOf(job.name) == -1
-                jobList.push(job.name)
+              if !(job.name of jobList)
+                jobList[job.name] = {}
+
+                # Check platform
+                if job.name.indexOf("ios") != -1
+                  jobList[job.name]["platform"] = "ios"
+                else if job.name.indexOf("android") != -1
+                  jobList[job.name]["platform"] = "android"
+                else
+                  jobList[job.name]["platform"] = "na"  #not available if not ios/android
+
+                # Check for build variants
+                if job.activeConfigurations?
+                  bv = []
+                  for variant in job.activeConfigurations
+                    if variant.name not in bv
+                      bv.push variant.name
+                  jobList[job.name]["build-variants"] = bv
+
               # Check job against channel name before adding it to the response
               if (jenkinsCheckChannel(msg, job.name))
-                index = jobList.indexOf(job.name)
-                response += "[#{index}] #{job.name} \n"
+               response += "#{job.name} \n"
 
-              # Check for build variants
-              if job.activeConfigurations?
-                for variant in job.activeConfigurations
-                  job_variant = job.name + ", build-variant: [" + variant.name + "]"
-                  # Add build variant to job list
-                  if jobList.indexOf(job_variant) == -1
-                    jobList.push(job_variant)
-
-                  # Check job against channel before adding it to the response
-                  if (jenkinsCheckChannel(msg, job.name))
-                    index = jobList.indexOf(job_variant)
-                    response += "[#{index}] #{job_variant} \n"
+            console.log(JSON.stringify(jobList))
 
             if response.length == 0
               msg.reply "There appears to be no jobs available for you. If you believe this is an error, please contact the build management team."
             else
-              response += "\n Trigger a build by using the commands 'build [job number]'. To get more information, including build parameters, on a specifc job listed above, use the command 'describe <job name>'."
+              response += "\n Trigger a build by using the commands 'build android|ios'. To get more information, including build parameters, on a specifc job listed above, use the command 'describe <job name>'."
               msg.send response
 
           catch error
@@ -379,8 +384,8 @@ jenkinsBuildLog = (msg, robot) ->
               msg.send error
 
 module.exports = (robot) ->
-  robot.respond /build (\d+)/i, (msg) ->
-    jenkinsBuildById(msg)
+  robot.respond /build (android|ios)(?:\s)?([a-z\s]+)?/i, (msg) ->
+    jenkinsBuild(msg)
 
   robot.respond /list( (.+))?/i, (msg) ->
     jenkinsList(msg)
