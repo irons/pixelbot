@@ -40,26 +40,40 @@ jenkinsBuild = (msg, buildWithEmptyParameters) ->
     console.log("job info: " + JSON.stringify(job_info))
 
     # Get build variants and build out build parameter string
-    # TO-DO: rewrite so it's not so convoluted
     if "build-variants" of job_info
       job_variants = job_info["build-variants"]
+      bv = buildVariant(job_variants)
       params = ""
       if variants
-        vn = variants.split(' ')
-        for v in job_variants
-          console.log(v)
-          axes = v.split(',')
-          for axis in axes
-            a = axis.split("=")
-            if a[1].toUpperCase() is vn[0].toUpperCase()
-              str = a[0].toUpperCase() + "V=" + a[1] + "&"
-              if params.indexOf(str) == -1
-                params += str
-            else if (vn.length > 1 && (a[1].toUpperCase() is vn[vn.length - 1].toUpperCase()))
-              str = a[0].toUpperCase() + "V=" + a[1] + "&"
-              if params.indexOf(str) == -1
-                params += str
+        vars = variants.split(' ')
+        upper_vars = vars.map((x) ->
+          x.toUpperCase()
+          )
+        for k of bv
+          console.log(k)
+          for type in bv[k]
+            console.log(type)
+            if upper_vars.indexOf(type.toUpperCase()) != -1
+              params += k.toUpperCase() + "V=" + type + "&"
       console.log(params)
+
+    #   params = ""
+    #   if variants
+    #     vn = variants.split(' ')
+    #     for v in job_variants
+    #       console.log(v)
+    #       axes = v.split(',')
+    #       for axis in axes
+    #         a = axis.split("=")
+    #         if a[1].toUpperCase() is vn[0].toUpperCase()
+    #           str = a[0].toUpperCase() + "V=" + a[1] + "&"
+    #           if params.indexOf(str) == -1
+    #             params += str
+    #         else if (vn.length > 1 && (a[1].toUpperCase() is vn[vn.length - 1].toUpperCase()))
+    #           str = a[0].toUpperCase() + "V=" + a[1] + "&"
+    #           if params.indexOf(str) == -1
+    #             params += str
+    #   console.log(params)
 
     url = process.env.HUBOT_JENKINS_URL
     command = if buildWithEmptyParameters then "buildWithParameters" else "build"
@@ -241,6 +255,7 @@ jenkinsList = (msg) ->
 
             console.log(JSON.stringify(jobList))
 
+
             if response.length == 0
               msg.reply "There appears to be no jobs available for you. If you believe this is an error, please contact the build management team."
             else
@@ -250,13 +265,32 @@ jenkinsList = (msg) ->
           catch error
             msg.send error
 
+
+# Returns an object that contains the build variant types as properties with values in a list
+buildVariant = (bvlist) ->
+  bv = {}
+  first_el = bvlist[0].split(',')
+  for item in first_el
+    bv[item.split("=")[0]] = []
+
+  for variant in bvlist
+    axis = variant.split(',')
+    for a in axis
+      nv = a.split('=')
+      if bv[nv[0]].indexOf(nv[1]) == -1
+        bv[nv[0]].push nv[1]
+
+  console.log(JSON.stringify(bv))
+
+  return bv
+
 # check that Jenkins job name matches chat room name
 jenkinsCheckChannel = (msg, job_name) ->
-      channel = msg.envelope.room
-      # splitting a string, e.g. android-hongkong, into an array, and getting the last element in that array, e.g. 'hongkong'.
-      # Slack channels names should end with market names to correctly match with available Jenkins jobs
-      market = channel.split('-').pop()
-      return (job_name.indexOf(market) != -1 || channel.match("build-management"))
+    channel = msg.envelope.room
+    # splitting a string, e.g. android-hongkong, into an array, and getting the last element in that array, e.g. 'hongkong'.
+    # Slack channels names should end with market names to correctly match with available Jenkins jobs
+    market = channel.split('-').pop()
+    return (job_name.indexOf(market) != -1 || channel.match("build-management"))
 
 jenkinsUploadLog = (msg, robot) ->
     platform = msg.match[1]
@@ -297,7 +331,7 @@ jenkinsBuildLog = (msg, robot) ->
         if err
           msg.send "Whoops, something went wrong! #{err}"
         else if 400 <= res.statusCode
-          msg.send "#{res.statusCode}: Build log not found, try passing in a different build number after the job name? "
+          msg.send "#{res.statusCode}: Build log not found for #{job}-#{variant}, try passing in a different build number after the job name? "
         else
           try
             fs.writeFile log_file, "#{body}", (error) ->
@@ -330,7 +364,7 @@ jenkinsBuildLog = (msg, robot) ->
                   if error
                     msg.send "something went wrong: #{error}"
                   else
-                    #msg.send "Build file uploaded."
+                    msg.send "Build file uploaded for #{job} #{variant}"
                     # Delete build log file after upload
                     fs.unlinkSync log_file
 
@@ -353,6 +387,7 @@ module.exports = (robot) ->
   robot.respond /log (android|ios)(?:\s)?(?:[\,\-b ]+)?(\d+)?/i, (msg) ->
     slack_bot = robot.adapter.client
     jenkinsUploadLog(msg, slack_bot)
+
 
   robot.jenkins = {
     list: jenkinsList,
