@@ -29,6 +29,33 @@ request = require 'request'
 # Holds jobs and info on jobs as objects.
 jobList = {}
 
+# Takes a list of build variants as parameter and returns an object with names as properties and values in lists.
+buildVariant = (bvlist) ->
+  bv = {}
+  # create properties using name of user-defined axes
+  first_var = bvlist[0].split(',')
+  for name_value in first_var
+    bv[name_value.split("=")[0]] = []
+
+  for variant in bvlist
+    axis = variant.split(',')
+    for a in axis
+      nv = a.split('=')
+      if bv[nv[0]].indexOf(nv[1]) == -1
+        bv[nv[0]].push nv[1]
+
+  console.log(JSON.stringify(bv))
+
+  return bv
+
+# check that Jenkins job name matches chat room name
+jenkinsCheckChannel = (msg, job_name) ->
+    channel = msg.envelope.room
+    # splitting a string, e.g. android-hongkong, into an array, and getting the last element in that array, e.g. 'hongkong'.
+    # Slack channels names should end with market names to correctly match with available Jenkins jobs
+    market = channel.split('-').pop()
+    return (job_name.indexOf(market) != -1 || channel.match("build-management"))
+
 jenkinsBuild = (msg, buildWithEmptyParameters) ->
     platform = msg.match[1]
     variants = msg.match[2]
@@ -49,12 +76,12 @@ jenkinsBuild = (msg, buildWithEmptyParameters) ->
         upper_vars = vars.map((x) ->
           x.toUpperCase()
           )
-        for k of bv
-          console.log(k)
-          for type in bv[k]
-            console.log(type)
-            if upper_vars.indexOf(type.toUpperCase()) != -1
-              params += k.toUpperCase() + "V=" + type + "&"
+        for name of bv
+          console.log(name)
+          for value in bv[name]
+            console.log(value)
+            if upper_vars.indexOf(value.toUpperCase()) != -1
+              params += name.toUpperCase() + "V=" + value + "&"
       console.log(params)
 
     #   params = ""
@@ -265,111 +292,98 @@ jenkinsList = (msg) ->
           catch error
             msg.send error
 
-
-# Returns an object that contains the build variant types as properties with values in a list
-buildVariant = (bvlist) ->
-  bv = {}
-  first_el = bvlist[0].split(',')
-  for item in first_el
-    bv[item.split("=")[0]] = []
-
-  for variant in bvlist
-    axis = variant.split(',')
-    for a in axis
-      nv = a.split('=')
-      if bv[nv[0]].indexOf(nv[1]) == -1
-        bv[nv[0]].push nv[1]
-
-  console.log(JSON.stringify(bv))
-
-  return bv
-
-# check that Jenkins job name matches chat room name
-jenkinsCheckChannel = (msg, job_name) ->
-    channel = msg.envelope.room
-    # splitting a string, e.g. android-hongkong, into an array, and getting the last element in that array, e.g. 'hongkong'.
-    # Slack channels names should end with market names to correctly match with available Jenkins jobs
-    market = channel.split('-').pop()
-    return (job_name.indexOf(market) != -1 || channel.match("build-management"))
-
-jenkinsUploadLog = (msg, robot) ->
+# Calls upload log if platform type does not have any variants, otherwise, lists available variants and asks user to pass in build variant as command arg.
+jenkinsBuildLog = (msg, robot) ->
     platform = msg.match[1]
+    variant = msg.match[2]
     market = msg.envelope.room.split('-').pop()
     job = "starbucks-#{platform}-#{market}"
-
     msg.match[1] = job
 
     if "build-variants" of jobList[job]
-      variant_list = jobList[job]["build-variants"]
-      for v in variant_list
-        msg.match[3] = v
-        jenkinsBuildLog(msg, robot)
-    else
-      jenkinsBuildLog(msg, robot)
+      bv = buildVariant(jobList[job]["build-variants"])
+      if !(variant?)
+        lists = ""
+        response = "Please choose one option from each list: "
+        for type of bv
+          lists += "    #{type}: " + bv[type] + "\n"
+          response += " #{type},"
+        response += " and use log command again. For example, 'log ios <choice> <choice>'. \n" + lists
+        msg.reply response
+      else
+        bvstring = ""
+        var_list = variant.split(' ')
+        for v in var_list
+          for name, value of bv
+            if value.indexOf(v) != -1
+              bvstring += "#{name}=#{v},"
+        bvstring = bvstring.slice(0, -1)
 
-jenkinsBuildLog = (msg, robot) ->
+        msg.match[2] = bvstring
+        jenkinsUploadLog(msg, robot)
+    else
+      jenkinsUploadLog(msg, robot)
+
+jenkinsUploadLog = (msg, robot) ->
     url = process.env.HUBOT_JENKINS_URL
     job = msg.match[1]
-    build_num = msg.match[2]
-    variant = msg.match[3]
+    variant = msg.match[2]
+    build_num = msg.match[3]
 
-    if (!jenkinsCheckChannel(msg, job))
-      msg.send "I can't upload build logs for that job. Are you in the correct Slack channel?"
-    else
-      build = if build_num then "#{build_num}" else "lastBuild"
-      path = if variant then "#{url}/job/#{job}/#{variant}/#{build}/consoleText" else "#{url}/job/#{job}/#{build}/consoleText"
+    build = if build_num then "#{build_num}" else "lastBuild"
+    path = if variant then "#{url}/job/#{job}/#{variant}/#{build}/consoleText" else "#{url}/job/#{job}/#{build}/consoleText"
 
-      channel = ""
-      log_file = "log-#{job}-#{build}-#{variant}.txt"
-      req = msg.http(path)
+    channel = ""
+    log_file = "log-#{job}-#{build}-#{variant}.txt"
+    req = msg.http(path)
 
-      if process.env.HUBOT_JENKINS_AUTH
-        auth = new Buffer(process.env.HUBOT_JENKINS_AUTH).toString('base64')
-        req.headers Authorization: "Basic #{auth}"
+    if process.env.HUBOT_JENKINS_AUTH
+      auth = new Buffer(process.env.HUBOT_JENKINS_AUTH).toString('base64')
+      req.headers Authorization: "Basic #{auth}"
 
-      req.get() (err,res,body) ->
-        if err
-          msg.send "Whoops, something went wrong! #{err}"
-        else if 400 <= res.statusCode
-          msg.send "#{res.statusCode}: Build log not found for #{job}-#{variant}, try passing in a different build number after the job name? "
-        else
-          try
-            fs.writeFile log_file, "#{body}", (error) ->
-              if error
-                console.error("Error writing file #{log_file}", error)
-              else
-                log_body = ->
-                  fs.readFile log_file, 'utf8', (error, body)->
-                    console.log("something went wrong trying when trying to read in the log file") if error
-                  return body
+    req.get() (err,res,body) ->
+      if err
+        msg.send "Whoops, something went wrong! #{err}"
+      else if 400 <= res.statusCode
+        msg.send "#{res.statusCode}: Build log not found for #{job}-#{variant}, try passing in a different build number after the job name? "
+      else
+        try
+          fs.writeFile log_file, "#{body}", (error) ->
+            if error
+              console.error("Error writing file #{log_file}", error)
+            else
+              log_body = ->
+                fs.readFile log_file, 'utf8', (error, body)->
+                  console.log("something went wrong trying when trying to read in the log file") if error
+                return body
 
-                # get the slack channel id to pass to slack api upload file method
-                for k of robot.channels
-                  channel_name = "#{robot.channels[k].name}"
-                  if channel_name.match msg.envelope.room
-                    console.log("#{k} :#{robot.channels[k].name}")
-                    channel += "#{k}"
-                #check private groups if channel_name still empty
-                if channel_name.match ""
-                  for j of robot.groups
-                    group_name = "#{robot.groups[j].name}"
-                    if group_name.match msg.envelope.room
-                      console.log("#{j}: #{robot.groups[j].name}")
-                      channel += "#{j}"
-                api_token = process.env.HUBOT_SLACK_API_TOKEN
-                options = {token: "#{api_token}", channels: "#{channel}", filename: "#{job}-#{variant}-#{build}-log.txt"}
-                options["content"] = log_body()
+              # get the slack channel id to pass to slack api upload file method
+              for k of robot.channels
+                channel_name = "#{robot.channels[k].name}"
+                if channel_name.match msg.envelope.room
+                  console.log("#{k} :#{robot.channels[k].name}")
+                  channel += "#{k}"
+              #check private groups if channel_name still empty
+              if channel_name.match ""
+                for j of robot.groups
+                  group_name = "#{robot.groups[j].name}"
+                  if group_name.match msg.envelope.room
+                    console.log("#{j}: #{robot.groups[j].name}")
+                    channel += "#{j}"
+              api_token = process.env.HUBOT_SLACK_API_TOKEN
+              options = {token: "#{api_token}", channels: "#{channel}", filename: "#{job}-#{variant}-#{build}-log.txt"}
+              options["content"] = log_body()
 
-                request.post "https://api.slack.com/api/files.upload", {form: options }, (error, response, body) ->
-                  if error
-                    msg.send "something went wrong: #{error}"
-                  else
-                    msg.send "Build file uploaded for #{job} #{variant}"
-                    # Delete build log file after upload
-                    fs.unlinkSync log_file
+              request.post "https://api.slack.com/api/files.upload", {form: options }, (error, response, body) ->
+                if error
+                  msg.send "something went wrong: #{error}"
+                else
+                  msg.send "Build file uploaded for #{job} #{variant}"
+                  # Delete build log file after upload
+                  fs.unlinkSync log_file
 
-          catch error
-            msg.send error
+        catch error
+          msg.send error
 
 module.exports = (robot) ->
   robot.respond /build (android|ios)(?:\s)?([a-z\s]+)?/i, (msg) ->
@@ -384,9 +398,9 @@ module.exports = (robot) ->
   robot.respond /last (android|ios)/i, (msg) ->
     jenkinsLast(msg)
 
-  robot.respond /log (android|ios)(?:\s)?(?:[\,\-b ]+)?(\d+)?/i, (msg) ->
+  robot.respond /log (android|ios)(?:\s)?([a-z\-\ ]+)?(\d+)?/i, (msg) ->
     slack_bot = robot.adapter.client
-    jenkinsUploadLog(msg, slack_bot)
+    jenkinsBuildLog(msg, slack_bot)
 
 
   robot.jenkins = {
