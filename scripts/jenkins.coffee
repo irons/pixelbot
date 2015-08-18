@@ -14,10 +14,10 @@
 # Commands:
 #
 #   hubot list - lists Jenkins jobs.
-#   hubot build <android|ios> <variants (optional)> - builds the android or ios job
-#   hubot describe <android|ios> - Describe the android or ios job.
-#   hubot last <android|ios> - Details about the last build for the android or ios job.
-#   hubot log <android|ios> -b <build number> (optional) - uploads Jenkins console log of android|ios job. Logs for all variants will be uploaded
+#   hubot build <android>|<ios> <variants> (optional) - builds the android or ios job
+#   hubot describe <android>|<ios> - describe the android or ios job.
+#   hubot last <android>|<ios> - details about the last build for the android or ios job.
+#   hubot log <android>|<ios> -b <build number> (optional) - uploads Jenkins console log of android|ios job. Logs for all variants will be uploaded
 #
 # Author:
 # Jesse Chen
@@ -51,7 +51,6 @@ buildVariant = (bvlist) ->
 # check that Jenkins job name matches chat room name
 jenkinsCheckChannel = (msg, job_name) ->
     channel = msg.envelope.room
-    # splitting a string, e.g. android-hongkong, into an array, and getting the last element in that array, e.g. 'hongkong'.
     # Slack channels names should end with market names to correctly match with available Jenkins jobs
     market = channel.split('-').pop()
     return (job_name.indexOf(market) != -1 || channel.match("build-management"))
@@ -286,7 +285,7 @@ jenkinsList = (msg) ->
             if response.length == 0
               msg.reply "There appears to be no jobs available for you. If you believe this is an error, please contact the build management team."
             else
-              response += "\n Trigger a build by using the commands 'build android|ios'. To get more information, including build parameters, on a specifc job listed above, use the command 'describe <job name>'."
+              response += "\n Trigger a build by using the commands 'build android|ios'. To get more information, including build parameters, on a specifc job listed above, use the command 'describe android|ios'."
               msg.send response
 
           catch error
@@ -398,10 +397,9 @@ module.exports = (robot) ->
   robot.respond /last (android|ios)/i, (msg) ->
     jenkinsLast(msg)
 
-  robot.respond /log (android|ios)(?:\s)?([a-z\-\ ]+)?(\d+)?/i, (msg) ->
+  robot.respond /log (android|ios)(?:\s)?([a-z\s]+[0-9\.a-z\ ]+)?(?:-b)?(\s\d+)?/i, (msg) ->
     slack_bot = robot.adapter.client
     jenkinsBuildLog(msg, slack_bot)
-
 
   robot.jenkins = {
     list: jenkinsList,
