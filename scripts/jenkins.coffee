@@ -397,7 +397,7 @@ module.exports = (robot) ->
   robot.respond /last (android|ios)/i, (msg) ->
     jenkinsLast(msg)
 
-  robot.respond /log (android|ios)(?:\s)?([a-z\s]+[0-9\.a-z\ ]+)?(?:-b)?(\s\d+)?/i, (msg) ->
+  robot.respond /log (android|ios)(?:\s)?([0-9a-z\s]+[0-9\.a-z\ ]+)?(?:-b)?(?:\s)?(\d+)?/i, (msg) ->
     slack_bot = robot.adapter.client
     jenkinsBuildLog(msg, slack_bot)
 
