@@ -63,7 +63,6 @@ jenkinsBuild = (msg, buildWithEmptyParameters) ->
     job = "starbucks-#{platform}-#{market}"
 
     job_info = jobList[job]
-    console.log("job info: " + JSON.stringify(job_info))
 
     # Get build variants and build out build parameter string
     if "build-variants" of job_info
@@ -76,30 +75,9 @@ jenkinsBuild = (msg, buildWithEmptyParameters) ->
           x.toUpperCase()
           )
         for name of bv
-          console.log(name)
           for value in bv[name]
-            console.log(value)
             if upper_vars.indexOf(value.toUpperCase()) != -1
               params += name.toUpperCase() + "V=" + value + "&"
-      console.log(params)
-
-    #   params = ""
-    #   if variants
-    #     vn = variants.split(' ')
-    #     for v in job_variants
-    #       console.log(v)
-    #       axes = v.split(',')
-    #       for axis in axes
-    #         a = axis.split("=")
-    #         if a[1].toUpperCase() is vn[0].toUpperCase()
-    #           str = a[0].toUpperCase() + "V=" + a[1] + "&"
-    #           if params.indexOf(str) == -1
-    #             params += str
-    #         else if (vn.length > 1 && (a[1].toUpperCase() is vn[vn.length - 1].toUpperCase()))
-    #           str = a[0].toUpperCase() + "V=" + a[1] + "&"
-    #           if params.indexOf(str) == -1
-    #             params += str
-    #   console.log(params)
 
     url = process.env.HUBOT_JENKINS_URL
     command = if buildWithEmptyParameters then "buildWithParameters" else "build"
@@ -238,7 +216,7 @@ jenkinsLast = (msg) ->
 
             msg.send response
 
-jenkinsList = (msg) ->
+jenkinsList = (msg, printList, robot, callback) ->
     url = process.env.HUBOT_JENKINS_URL
     filter = new RegExp(msg.match[2], 'i')
     req = msg.http("#{url}/api/json?depth=1&tree=jobs[name,activeConfigurations[name]]")
@@ -281,12 +259,15 @@ jenkinsList = (msg) ->
 
             console.log(JSON.stringify(jobList))
 
-
-            if response.length == 0
-              msg.reply "There appears to be no jobs available for you. If you believe this is an error, please contact the build management team."
+            if printList
+              if response.length == 0
+                msg.reply "There appears to be no jobs available for you. If you believe this is an error, please contact the build management team."
+              else
+                response += "\n Trigger a build by using the commands 'build android|ios'. To get more information on a specifc job listed above, use the command 'describe android|ios'."
+                msg.send response
             else
-              response += "\n Trigger a build by using the commands 'build android|ios'. To get more information, including build parameters, on a specifc job listed above, use the command 'describe android|ios'."
-              msg.send response
+              if callback and typeof callback == 'function'
+                callback(msg, robot)
 
           catch error
             msg.send error
@@ -386,10 +367,10 @@ jenkinsUploadLog = (msg, robot) ->
 
 module.exports = (robot) ->
   robot.respond /build (android|ios)(?:\s)?([a-z\s]+)?/i, (msg) ->
-    jenkinsBuild(msg)
+    jenkinsList(msg, false, null, jenkinsBuild)
 
   robot.respond /list( (.+))?/i, (msg) ->
-    jenkinsList(msg)
+    jenkinsList(msg, true)
 
   robot.respond /describe (android|ios)/i, (msg) ->
     jenkinsDescribe(msg)
@@ -399,7 +380,7 @@ module.exports = (robot) ->
 
   robot.respond /log (android|ios)(?:\s)?([0-9a-z\s]+[0-9\.a-z\ ]+)?(?:-b)?(?:\s)?(\d+)?/i, (msg) ->
     slack_bot = robot.adapter.client
-    jenkinsBuildLog(msg, slack_bot)
+    jenkinsList(msg, false, slack_bot, jenkinsBuildLog)
 
   robot.jenkins = {
     list: jenkinsList,
