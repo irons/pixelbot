@@ -116,7 +116,7 @@ addUser = (msg) ->
         else
           msg.send "#{res.statusCode}: #{body}"
   else
-    msg.reply "Bitbucket commands can only be called in the Bitbucket private group."
+    msg.send "Bitbucket commands can only be called in the Bitbucket private group."
 
 
 module.exports = (robot) ->
