@@ -17,36 +17,39 @@
 # Jesse Chen
 
 create = (msg) ->
-  repo_name = msg.match[1]
+  if msg.envelope.room.match("bitbucket")
+    repo_name = msg.match[1]
 
-  if process.env.HUBOT_BITBUCKET_AUTH_USER && process.env.HUBOT_BITBUCKET_AUTH_PASSWORD
-    user = process.env.HUBOT_BITBUCKET_AUTH_USER
-    password = process.env.HUBOT_BITBUCKET_AUTH_PASSWORD
+    if process.env.HUBOT_BITBUCKET_AUTH_USER && process.env.HUBOT_BITBUCKET_AUTH_PASSWORD
+      user = process.env.HUBOT_BITBUCKET_AUTH_USER
+      password = process.env.HUBOT_BITBUCKET_AUTH_PASSWORD
 
-    req = msg.http("https://bitbucket.org/api/2.0/repositories/#{user}/#{repo_name}")
-    auth = new Buffer(user + ':' + password).toString('base64')
-    req.headers Authorization: "Basic #{auth}"
+      req = msg.http("https://bitbucket.org/api/2.0/repositories/#{user}/#{repo_name}")
+      auth = new Buffer(user + ':' + password).toString('base64')
+      req.headers Authorization: "Basic #{auth}"
 
-    data = JSON.stringify({
-      scm: "git",
-      repo_slug: repo_name,
-      is_private: true,
-      fork_policy: "no_forks",
-      has_wiki: false
-    })
+      data = JSON.stringify({
+        scm: "git",
+        repo_slug: repo_name,
+        is_private: true,
+        fork_policy: "no_forks",
+        has_wiki: false
+      })
 
-    req.header('Content-Type', 'application/json')
-    req.post(data) (err, res, body) ->
-      if err
-        msg.send "whoops! an error has occcured: #{err}"
-      else if res.statusCode == 401
-        msg.send "There's something wrong your username and password for Bitbucket."
-      else if res.statusCode == 200
-        msg.send "New repository created! \n https://bitbucket.org/#{user}/#{repo_name}"
-        createGroup(msg, repo_name + "-read", repo_name, "read")
-        createGroup(msg, repo_name + "-readwrite", repo_name, "write")
-      else
-        msg.send "#{res.statusCode}: #{body}"
+      req.header('Content-Type', 'application/json')
+      req.post(data) (err, res, body) ->
+        if err
+          msg.send "whoops! an error has occcured: #{err}"
+        else if res.statusCode == 401
+          msg.send "There's something wrong your username and password for Bitbucket."
+        else if res.statusCode == 200
+          msg.send "New repository created! \n https://bitbucket.org/#{user}/#{repo_name}"
+          createGroup(msg, repo_name + "-read", repo_name, "read")
+          createGroup(msg, repo_name + "-readwrite", repo_name, "write")
+        else
+          msg.send "#{res.statusCode}: #{body}"
+  else
+    msg.send "Bitbucket commands can only be called in the Bitbucket private group."
 
 createGroup = (msg, group_name, repo_name, priv) ->
   if process.env.HUBOT_BITBUCKET_AUTH_USER && process.env.HUBOT_BITBUCKET_AUTH_PASSWORD
@@ -76,7 +79,7 @@ addGroup = (msg, repo, group, priv) ->
     password = process.env.HUBOT_BITBUCKET_AUTH_PASSWORD
 
     req = msg.http("https://bitbucket.org/api/1.0/group-privileges/#{user}/#{repo}/#{user}/#{group}")
-    auth = new Buffer(user+':'+password).toString('base64')
+    auth = new Buffer(user + ':' + password).toString('base64')
     req.headers Authorization: "Basic #{auth}"
 
     req.put("#{priv}") (err, res, body) ->
@@ -91,26 +94,29 @@ addGroup = (msg, repo, group, priv) ->
 
 
 addUser = (msg) ->
-  user = msg.match[1]
-  group = msg.match[2]
+  if msg.envelope.room.match("bitbucket")
+    user = msg.match[1]
+    group = msg.match[2]
 
-  if process.env.HUBOT_BITBUCKET_AUTH_USER && process.env.HUBOT_BITBUCKET_AUTH_PASSWORD
-    owner = process.env.HUBOT_BITBUCKET_AUTH_USER
-    password = process.env.HUBOT_BITBUCKET_AUTH_PASSWORD
+    if process.env.HUBOT_BITBUCKET_AUTH_USER && process.env.HUBOT_BITBUCKET_AUTH_PASSWORD
+      owner = process.env.HUBOT_BITBUCKET_AUTH_USER
+      password = process.env.HUBOT_BITBUCKET_AUTH_PASSWORD
 
-    req = msg.http("https://bitbucket.org/api/1.0/groups/#{owner}/#{group}/members/#{user}")
-    auth = new Buffer(owner + ':' + password).toString('base64')
-    req.headers Authorization: "Basic #{auth}"
+      req = msg.http("https://bitbucket.org/api/1.0/groups/#{owner}/#{group}/members/#{user}")
+      auth = new Buffer(owner + ':' + password).toString('base64')
+      req.headers Authorization: "Basic #{auth}"
 
-    req.put() (err, res, body) ->
-      if err
-        msg.send "whoops! an error has occcured: #{err}"
-      else if res.statusCode == 401
-        msg.send "There's something wrong your username and password for Bitbucket."
-      else if res.statusCode == 200
-        msg.send "User #{user} added to #{group} group."
-      else
-        msg.send "#{res.statusCode}: #{body}"
+      req.put() (err, res, body) ->
+        if err
+          msg.send "whoops! an error has occcured: #{err}"
+        else if res.statusCode == 401
+          msg.send "There's something wrong your username and password for Bitbucket."
+        else if res.statusCode == 200
+          msg.send "User #{user} added to #{group} group."
+        else
+          msg.send "#{res.statusCode}: #{body}"
+  else
+    msg.reply "Bitbucket commands can only be called in the Bitbucket private group."
 
 
 module.exports = (robot) ->
