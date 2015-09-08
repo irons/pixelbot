@@ -8,7 +8,7 @@
 #  JSON file named hockey.json with properties 'hockeyapptoken', 'file-path' to builds, and platform-market properties are required.
 #
 # Commands:
-#   hubot upload <android>/<ios> <build_number> - uploads specified android or ios app to HockeyApp.
+#   hubot upload <android>|<ios> <build_number> - uploads specified android or ios app to HockeyApp.
 #
 # Author:
 # Jesse Chen
@@ -16,9 +16,9 @@ request = require 'request'
 fs = require 'fs'
 
 upload = (msg) ->
-    platform = msg.match[1]
-    market = msg.match[2]
+    platform = msg.match[1].toLowerCase()
     buildNumber = msg.match[3]
+    market = if msg.match[2] then msg.match[2].toLowerCase() else msg.envelope.room.split('-')
 
     fs.readFile "hockey.json", 'utf-8', (error, body) ->
       console.log("Something's wrong with the JSON file for hockeyapp IDs:" + error ) if error
@@ -51,7 +51,8 @@ upload = (msg) ->
         ipa: ipa_file,
         notes: 'uploaded by hubot',
         notify: '1',
-        tags: 'build-mgmt'
+        tags: 'build-mgmt',
+        status: 2
         }
 
       request.post {url: "https://rink.hockeyapp.net/api/2/apps/#{app_id}/app_versions/upload", headers: {'X-HockeyAppToken': "#{token}"}, formData: data}, (err,res, body) ->
@@ -64,7 +65,7 @@ upload = (msg) ->
             response += "#{p}: #{v}\n"
           msg.reply "Build posted to HockeyApp.\n #{response}"
         else
-          msg.reply "Not sure what went on here... #{res.statusCode}, #{body}"+"\n#{app_id}, #{file_path}" + JSON.stringify(data)
+          msg.reply "Not sure what went on here... #{res.statusCode}, #{body} \n" + JSON.stringify(data)
 
 module.exports = (robot) ->
     robot.respond /upload (android|ios)?(?:\s)([a-z]+)(?:\s)?(\d+)?/i, (msg) ->
