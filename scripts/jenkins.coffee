@@ -17,7 +17,7 @@
 #   hubot build <android>|<ios> <variants> (optional) - builds the android or ios job
 #   hubot describe <android>|<ios> - describe the android or ios job.
 #   hubot last <android>|<ios> - details about the last build for the android or ios job.
-#   hubot log <android>|<ios> -b <build number> (optional) - uploads Jenkins console log of android|ios job. Logs for all variants will be uploaded
+#   hubot log <android>|<ios> -b <build number> (optional) - uploads Jenkins console log of android|ios job.
 #
 # Author:
 # Jesse Chen
